@@ -345,7 +345,11 @@
 
   const normalizeData = (rows) => (rows || []).map(normalizeRow).filter((r) => r && r.ano !== null);
 
-  const isStateRow = (r) => String(r.nivel_geo || "").toLowerCase().startsWith("estad");
+  // Aceita tanto "Estado" quanto "Estadual" (e variantes)
+  const isStateRow = (r) => {
+    const ng = String(r.nivel_geo || "").toLowerCase();
+    return ng.startsWith("estado") || ng.startsWith("estad");
+  };
   const isMunicipioRow = (r) => {
     const ng = String(r.nivel_geo || "").toLowerCase();
     return ng.startsWith("mun") || ng.includes("munic");
@@ -867,6 +871,8 @@
     if (optMun) optMun.disabled = !hasMun;
     if (els.scope.value === "Estado" && !hasState && hasMun) els.scope.value = "Município";
     if (els.scope.value === "Município" && !hasMun && hasState) els.scope.value = "Estado";
+
+    const scopeSel = els.scope.value;
 
     // Série (valores): só mostra sexo se existir no painel/evento
     const baseForSeries = STATE.annual.length ? STATE.annual : baseForEvents;
