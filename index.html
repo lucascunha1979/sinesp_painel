@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Painéis SINESP — Rio Grande do Sul</title>
+
+  <!-- Plotly (gráficos) -->
+  <script src="https://cdn.plot.ly/plotly-2.30.0.min.js"></script>
+
+  <!-- Leaflet (mapa) -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- PapaParse (CSV) -->
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+
+  <!-- JSZip (ler .zip no browser) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="./assets/style.css?v=fix2"/>
+</head>
+
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-title">Painéis SINESP — Rio Grande do Sul</div>
+      <div class="brand-subtitle">Série mensal + taxas anuais (quando aplicável)</div>
+    </div>
+    <nav class="tabs" id="tabs"></nav>
+  </header>
+
+  <main class="container">
+    <section class="filters">
+      <div class="filters-grid">
+        <div class="field">
+          <label for="panelSelect">Painel</label>
+          <select id="panelSelect"></select>
+        </div>
+
+        <div class="field">
+          <label for="eventSelect">Evento</label>
+          <select id="eventSelect"></select>
+        </div>
+
+        <div class="field">
+          <label for="scopeSelect">Abrangência</label>
+          <select id="scopeSelect">
+            <option value="Estado">Estado</option>
+            <option value="Município">Município</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="munSelect">Município (quando aplicável)</label>
+          <select id="munSelect" disabled></select>
+        </div>
+
+        <div class="field">
+          <label for="metricSelect">Métrica</label>
+          <select id="metricSelect"></select>
+        </div>
+
+        <div class="field">
+          <label for="yearSelect">Ano (cards / mapa / calculadora)</label>
+          <select id="yearSelect"></select>
+        </div>
+
+        <div class="field">
+          <label for="extraSelect">Filtro extra (quando existir)</label>
+          <select id="extraSelect" disabled></select>
+        </div>
+
+        <div class="field field-actions">
+          <button id="resetBtn" class="btn">Limpar filtros</button>
+        </div>
+      </div>
+
+      <div class="toggles">
+        <label class="toggle">
+          <input type="checkbox" id="dailyToggle"/>
+          <span>Média diária estimada (valor mensal ÷ dias do mês)</span>
+        </label>
+        <!-- "Visualizar (Valores/Taxas)" e "Série temporal (Mensal/Anual)" são inseridos automaticamente pelo app.js aqui -->
+      </div>
+
+      <div class="calc">
+        <div class="calc-title">Comparar anos (calculadora) — variação</div>
+        <div class="calc-grid">
+          <div class="field">
+            <label for="yearASelect">Ano A</label>
+            <select id="yearASelect"></select>
+          </div>
+
+          <div class="calc-arrow">→</div>
+
+          <div class="field">
+            <label for="yearBSelect">Ano B</label>
+            <select id="yearBSelect"></select>
+          </div>
+
+          <div class="calc-result" id="calcResult">
+            <div class="calc-kpi">
+              <div class="kpi-label">Δ Total</div>
+              <div class="kpi-value" id="calcDeltaAbs">—</div>
+            </div>
+            <div class="calc-kpi">
+              <div class="kpi-label">Δ %</div>
+              <div class="kpi-value" id="calcDeltaPct">—</div>
+            </div>
+            <div class="calc-kpi">
+              <div class="kpi-label">Taxa (se houver)</div>
+              <div class="kpi-value" id="calcTaxInfo">—</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="kpis">
+      <div class="kpi-card">
+        <div class="kpi-label" id="kpi1Label">Total no último mês</div>
+        <div class="kpi-value" id="kpi1Value">—</div>
+        <div class="kpi-foot" id="kpi1Foot">—</div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-label" id="kpi2Label">Total no ano</div>
+        <div class="kpi-value" id="kpi2Value">—</div>
+        <div class="kpi-foot" id="kpi2Foot">—</div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-label" id="kpi3Label">Taxa anual (por 100 mil)</div>
+        <div class="kpi-value" id="kpi3Value">—</div>
+        <div class="kpi-foot" id="kpi3Foot">Se disponível</div>
+      </div>
+    </section>
+
+    <section class="grid">
+      <div class="panel full">
+        <div class="panel-title">Linha do tempo (toda a série histórica)</div>
+        <div class="panel-body">
+          <div id="tsChart" class="chart chart-wide"></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">Comparativo por sexo (barras — quando existir)</div>
+        <div class="panel-body">
+          <div id="sexChart" class="chart"></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">Ranking (todos os municípios — quando houver)</div>
+        <div class="panel-body">
+          <div id="rankChart" class="chart"></div>
+        </div>
+      </div>
+
+      <div class="panel full">
+        <div class="panel-title">Mapa (quando houver municípios)</div>
+        <div class="panel-body">
+          <div id="map" class="map"></div>
+          <div class="map-legend" id="mapLegend"></div>
+        </div>
+      </div>
+    </section>
+
+    <footer class="footer">
+      Fonte: <b>Sistema Nacional de Informações de Segurança Pública (SINESP)</b> — <b>Ministério da Justiça e Segurança Pública</b>, Brasil.
+    </footer>
+  </main>
+
+  <!-- config antes do app; cache-buster para GitHub Pages -->
+  <script src="./assets/config.js?v=fix2"></script>
+  <script src="./assets/app.js?v=fix2"></script>
+</body>
+</html>
